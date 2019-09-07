@@ -6,7 +6,7 @@ import http from 'http';
 import https from 'https';
 import path from 'path';
 
-app.use(express.static(path.join(process.cwd(),"dist")));
+app.use(express.static(path.join(process.cwd(), "dist")));
 
 export default class CallHandler {
 
@@ -23,7 +23,7 @@ export default class CallHandler {
 
         var ws_server_port = (process.env.PORT || 4442);
         this.server = http.createServer(app).listen(ws_server_port, () => {
-            console.log("Start WS Server: bind => ws://0.0.0.0:"+ws_server_port);
+            console.log("Start WS Server: bind => ws://0.0.0.0:" + ws_server_port);
         });
 
         this.ws = new ws.Server({ server: this.server });
@@ -37,7 +37,7 @@ export default class CallHandler {
 
         var wss_server_port = (process.env.PORT + 1 || 4443);
         this.ssl_server = https.createServer(options, app).listen(wss_server_port, () => {
-            console.log("Start WSS Server: bind => wss://0.0.0.0:"+wss_server_port);
+            console.log("Start WSS Server: bind => wss://0.0.0.0:" + wss_server_port);
         });
 
         this.wss = new ws.Server({ server: this.ssl_server });
@@ -66,7 +66,7 @@ export default class CallHandler {
 
         var msg = {
             type: "peers",
-            data: peers,
+            data: peers
         };
 
         let _send = this._send;
@@ -75,10 +75,7 @@ export default class CallHandler {
         });
     }
 
-    onClose = (client_self, data) => {
-        console.log('close');
-        var session_id = client_self.session_id;
-        //remove old session_id
+    removeSession = (session_id) => {
         if (session_id !== undefined) {
             for (let i = 0; i < this.sessions.length; i++) {
                 let item = this.sessions[i];
@@ -88,15 +85,21 @@ export default class CallHandler {
                 }
             }
         }
+    }
+
+    onClose = (client_self, data) => {
+        console.log('close');
+        this.removeSession(client_self.session_id);
+
         var msg = {
             type: "leave",
-            data: client_self.id,
+            data: client_self.id
         };
 
         let _send = this._send;
         this.clients.forEach(function (client) {
             if (client != client_self)
-            _send(client, JSON.stringify(msg));
+                _send(client, JSON.stringify(msg));
         });
 
         this.updatePeers();
@@ -160,10 +163,17 @@ export default class CallHandler {
                                         data: {
                                             session_id: message.session_id,
                                             from: message.from,
-                                            to: (client.id == session.from ? session.to : session.from),
-                                        },
+                                            to: (client.id == session.from ? session.to : session.from)
+                                        }
                                     };
+
                                     _send(client, JSON.stringify(msg));
+
+                                    this.removeSession(client.session_id);
+
+                                    client.session_id = null;
+
+                                    this.updatePeers();
                                 } catch (e) {
                                     console.log("onUserJoin:" + e.message);
                                 }
@@ -181,7 +191,6 @@ export default class CallHandler {
                         });
 
                         if (peer != null) {
-
                             msg = {
                                 type: "offer",
                                 data: {
@@ -189,9 +198,10 @@ export default class CallHandler {
                                     from: client_self.id,
                                     media: message.media,
                                     session_id: message.session_id,
-                                    description: message.description,
+                                    description: message.description
                                 }
                             }
+
                             _send(peer, JSON.stringify(msg));
 
                             peer.session_id = message.session_id;
@@ -200,13 +210,15 @@ export default class CallHandler {
                             let session = {
                                 id: message.session_id,
                                 from: client_self.id,
-                                to: peer.id,
+                                to: peer.id
                             };
+
                             this.sessions.push(session);
                         }
 
-                        break;
+                        this.updatePeers();
                     }
+                    break;
                 case 'answer':
                     {
                         var msg = {
@@ -214,7 +226,7 @@ export default class CallHandler {
                             data: {
                                 from: client_self.id,
                                 to: message.to,
-                                description: message.description,
+                                description: message.description
                             }
                         };
 
@@ -236,10 +248,10 @@ export default class CallHandler {
                             data: {
                                 from: client_self.id,
                                 to: message.to,
-                                candidate: message.candidate,
+                                candidate: message.candidate
                             }
                         };
-                        
+
                         this.clients.forEach(function (client) {
                             if (client.id === "" + message.to && client.session_id === message.session_id) {
                                 try {
@@ -252,8 +264,8 @@ export default class CallHandler {
                     }
                     break;
                 case 'keepalive':
-                    _send(client_self, JSON.stringify({type:'keepalive', data:{}}));
-                break;
+                    _send(client_self, JSON.stringify({ type: 'keepalive', data: {} }));
+                    break;
                 default:
                     console.log("Unhandled message: " + message.type);
             }
@@ -263,7 +275,7 @@ export default class CallHandler {
     _send = (client, message) => {
         try {
             client.send(message);
-        }catch(e){
+        } catch (e) {
             console.log("Send failure !: " + e);
         }
     }
