@@ -75,21 +75,8 @@ export default class CallHandler {
         });
     }
 
-    removeSession = (session_id) => {
-        if (session_id !== undefined) {
-            for (let i = 0; i < this.sessions.length; i++) {
-                let item = this.sessions[i];
-                if (item.id == session_id) {
-                    this.sessions.splice(i, 1);
-                    break;
-                }
-            }
-        }
-    }
-
     onClose = (client_self, data) => {
         console.log('close');
-        this.removeSession(client_self.session_id);
 
         var msg = {
             type: "leave",
@@ -97,9 +84,17 @@ export default class CallHandler {
         };
 
         let _send = this._send;
+        let _removeSession = this._removeSession;
         this.clients.forEach(function (client) {
-            if (client != client_self)
+            if (client != client_self) {
                 _send(client, JSON.stringify(msg));
+
+                if (!client_self.session_id && client_self.session_id === client.session_id) {
+                    _removeSession(client_self.session_id);
+                    client_self.session_id = null;
+                    client.session_id = null;
+                }
+            }
         });
 
         this.updatePeers();
@@ -109,6 +104,7 @@ export default class CallHandler {
         console.log('connection');
 
         let _send = this._send;
+        let _removeSession = this._removeSession;
 
         this.clients.add(client_self);
 
@@ -169,7 +165,7 @@ export default class CallHandler {
 
                                     _send(client, JSON.stringify(msg));
 
-                                    this.removeSession(client.session_id);
+                                    _removeSession(client.session_id);
 
                                     client.session_id = null;
 
@@ -277,6 +273,18 @@ export default class CallHandler {
             client.send(message);
         } catch (e) {
             console.log("Send failure !: " + e);
+        }
+    }
+
+    _removeSession = (session_id) => {
+        if (!session_id) {
+            for (let i = 0; i < this.sessions.length; i++) {
+                let item = this.sessions[i];
+                if (item.id == session_id) {
+                    this.sessions.splice(i, 1);
+                    break;
+                }
+            }
         }
     }
 }
