@@ -76,7 +76,7 @@ export default class CallHandler {
     }
 
     onClose = (client_self, data) => {
-        console.log('close');
+        console.log('client ' + client_self.id + ' close');
 
         var msg = {
             type: "leave",
@@ -101,7 +101,7 @@ export default class CallHandler {
     }
 
     onConnection = (client_self, socket) => {
-        console.log('connection');
+        console.log('new client connection');
 
         let _send = this._send;
         let _removeSession = this._removeSession;
@@ -110,7 +110,7 @@ export default class CallHandler {
 
         client_self.on("close", (data) => {
             this.clients.delete(client_self);
-            this.onClose(client_self, data)
+            this.onClose(client_self, data);
         });
 
         client_self.on("message", message => {
@@ -124,10 +124,22 @@ export default class CallHandler {
             switch (message.type) {
                 case 'new':
                     {
-                        client_self.id = "" + message.id;
-                        client_self.name = message.name;
-                        client_self.user_agent = message.user_agent;
-                        this.updatePeers();
+                        var ok = true;
+
+                        this.clients.forEach(function (client) {
+                            if (client.id && client.id == message.id) {
+                                client.close();
+                                console.log("duplicate client removed");
+                                ok = false;
+                            }
+                        });
+
+                        if (ok) {
+                            client_self.id = "" + message.id;
+                            client_self.name = message.name;
+                            client_self.user_agent = message.user_agent;
+                            this.updatePeers();
+                        }
                     }
                     break;
                 case 'bye':
@@ -143,8 +155,8 @@ export default class CallHandler {
                             var msg = {
                                 type: "error",
                                 data: {
-                                    error: "Invalid session " + message.session_id,
-                                },
+                                    error: "Invalid session " + message.session_id
+                                }
                             };
                             _send(client_self, JSON.stringify(msg));
                             return;
